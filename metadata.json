@@ -1,0 +1,6 @@
+{
+  "name": "GoPay Forwarder",
+  "description": "Aplikasi sangat simple untuk meneruskan notifikasi GoPay Merchant ke webhook server eksternal secara real-time.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
