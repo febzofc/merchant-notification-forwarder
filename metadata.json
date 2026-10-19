@@ -1,6 +1,0 @@
-{
-  "name": "Bayarin",
-  "description": "Aplikasi penerus notifikasi pembayaran QRIS merchant dari DANA, GoPay, dan e-wallet ke webhook server eksternal secara real-time.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

@@ -62,14 +62,30 @@ class NotificationForwarderService : NotificationListenerService() {
             return
         }
 
-        if (!shouldForward(packageName, title, text, filterMode, customPackage)) {
-            Log.d("NotificationForwarder", "Package $packageName filtered out by mode $filterMode")
+        val blockPromos = NotificationStateHolder.blockPromos.value
+        val requireAmount = NotificationStateHolder.requireAmount.value
+        val provider = detectProvider(packageName, title, text)
+        val amount = extractAmount("$title $text $subText")
+
+        val decision = evaluateFilter(
+            packageName = packageName,
+            title = title,
+            text = text,
+            subText = subText,
+            mode = filterMode,
+            customPackage = customPackage,
+            blockPromos = blockPromos,
+            requireAmount = requireAmount,
+            amount = amount,
+            provider = provider
+        )
+
+        if (!decision.allowed) {
+            Log.d("NotificationForwarder", "Package $packageName filtered out: ${decision.reason}")
             return
         }
 
         val uniqueId = "${sbn.packageName}_${sbn.id}_${sbn.postTime}"
-        val provider = detectProvider(packageName, title, text)
-        val amount = extractAmount("$title $text")
 
         // Create log item in SENDING status
         val logItem = ForwardLog(
@@ -152,64 +168,51 @@ class NotificationForwarderService : NotificationListenerService() {
         }
     }
 
-    private fun extractAmount(text: String): Long? {
-        return try {
-            val regex = Regex("""(?:Rp|IDR)\s*([0-9.,]+)""", RegexOption.IGNORE_CASE)
-            val match = regex.find(text) ?: return null
-            val numStr = match.groupValues[1].replace(".", "").replace(",", "")
-            numStr.toLongOrNull()
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    private fun detectProvider(pkg: String, title: String, text: String): String {
-        val combined = "$pkg $title $text".lowercase()
-        return when {
-            pkg.contains("dana") || combined.contains("dana") -> "DANA"
-            pkg.contains("gopay") || pkg.contains("gobiz") || pkg.contains("gojek") || combined.contains("gopay") || combined.contains("gobiz") -> "GOPAY"
-            pkg.contains("ovo") || combined.contains("ovo") -> "OVO"
-            pkg.contains("shopee") || combined.contains("shopeepay") -> "SHOPEEPAY"
-            pkg.contains("linkaja") || combined.contains("linkaja") -> "LINKAJA"
-            combined.contains("qris") -> "QRIS"
-            else -> "OTHER"
-        }
-    }
-
-    private fun isActualPaymentNotification(title: String, text: String): Boolean {
-        val combined = "$title $text".lowercase()
-
-        // Reject spam / promo / marketing / chat notifications
-        val promoKeywords = listOf(
-            "promo", "diskon", "cashback", "voucher", "kupon", "hadiah", "lucky",
-            "spin", "game", "invite", "ajak", "poin", "coin", "mission", "misi",
-            "upgrade", "pinjaman", "cicil", "paylater", "chat", "pesan",
-            "spesial", "khusus kamu", "klaim", "ajak teman"
-        )
-        if (promoKeywords.any { combined.contains(it) }) {
-            val hasStrongPayment = combined.contains("berhasil") || combined.contains("menerima") || combined.contains("diterima") || combined.contains("qris")
-            if (!hasStrongPayment) return false
+    companion object {
+        fun extractAmount(text: String): Long? {
+            return try {
+                val regex = Regex("""(?:Rp\.?|IDR)\s*([0-9.,]+)""", RegexOption.IGNORE_CASE)
+                val match = regex.find(text) ?: return null
+                var numStr = match.groupValues[1].trim()
+                numStr = numStr.replace(Regex("[,.]00$"), "")
+                val cleaned = numStr.replace(".", "").replace(",", "")
+                cleaned.toLongOrNull()
+            } catch (e: Exception) {
+                null
+            }
         }
 
-        // Must contain payment / incoming transaction indicators AND valid amount
-        val paymentKeywords = listOf(
-            "berhasil", "menerima", "diterima", "terima", "masuk", "paid",
-            "received", "pembayaran", "transaksi", "sukses", "qris", "rp", "idr"
-        )
-        val hasPaymentKeyword = paymentKeywords.any { combined.contains(it) }
-        val amount = extractAmount(combined)
+        fun detectProvider(pkg: String, title: String, text: String): String {
+            val combined = "$pkg $title $text".lowercase()
+            return when {
+                pkg.contains("dana") || combined.contains("dana") -> "DANA"
+                pkg.contains("gopay") || pkg.contains("gobiz") || pkg.contains("gojek") || combined.contains("gopay") || combined.contains("gobiz") -> "GOPAY"
+                pkg.contains("ovo") || combined.contains("ovo") -> "OVO"
+                pkg.contains("shopee") || combined.contains("shopeepay") -> "SHOPEEPAY"
+                pkg.contains("linkaja") || combined.contains("linkaja") -> "LINKAJA"
+                combined.contains("qris") -> "QRIS"
+                else -> "OTHER"
+            }
+        }
 
-        return hasPaymentKeyword && amount != null && amount > 0L
-    }
+        fun evaluateFilter(
+            packageName: String,
+            title: String,
+            text: String,
+            subText: String = "",
+            mode: String,
+            customPackage: String = "",
+            blockPromos: Boolean = true,
+            requireAmount: Boolean = true,
+            amount: Long? = null,
+            provider: String = ""
+        ): FilterDecision {
+            val combined = "$packageName $title $text $subText".lowercase()
 
-    private fun shouldForward(packageName: String, title: String, text: String, mode: String, customFilter: String): Boolean {
-        val combined = "$packageName $title $text".lowercase()
-        val isPayment = isActualPaymentNotification(title, text)
-
-        return when (mode) {
-            "all" -> true // In all mode, we still filter out obvious promos if desired, or allow all. Let's still require payment for financial apps or allow all if user chose all. Wait, if mode is "all", user wants everything. But for "qris", "gopay", "merchant", "all_qris", we strictly require isPayment.
-            "qris", "gopay", "merchant" -> {
-                val isTargetApp = packageName.contains("dana", ignoreCase = true) ||
+            val isTargetApp = when (mode) {
+                "all" -> true
+                "qris", "gopay", "merchant" -> {
+                    packageName.contains("dana", ignoreCase = true) ||
                     packageName.contains("gojek.gobiz", ignoreCase = true) ||
                     packageName.contains("gopay", ignoreCase = true) ||
                     packageName.contains("gojek.app", ignoreCase = true) ||
@@ -217,10 +220,9 @@ class NotificationForwarderService : NotificationListenerService() {
                     combined.contains("gopay") ||
                     combined.contains("gobiz") ||
                     combined.contains("qris")
-                isTargetApp && isPayment
-            }
-            "all_qris" -> {
-                val isTargetApp = packageName.contains("dana", ignoreCase = true) ||
+                }
+                "all_qris" -> {
+                    packageName.contains("dana", ignoreCase = true) ||
                     packageName.contains("gopay", ignoreCase = true) ||
                     packageName.contains("gobiz", ignoreCase = true) ||
                     packageName.contains("gojek", ignoreCase = true) ||
@@ -233,12 +235,59 @@ class NotificationForwarderService : NotificationListenerService() {
                     combined.contains("qris") ||
                     combined.contains("dana") ||
                     combined.contains("gopay")
-                isTargetApp && isPayment
+                }
+                "custom" -> packageName.equals(customPackage.trim(), ignoreCase = true)
+                else -> false
             }
-            "custom" -> {
-                packageName.equals(customFilter.trim(), ignoreCase = true) && isPayment
+
+            if (!isTargetApp) {
+                return FilterDecision(false, "Paket aplikasi tidak sesuai filter mode ($mode)")
             }
-            else -> false
+
+            if (blockPromos) {
+                val promoKeywords = listOf(
+                    "promo", "diskon", "cashback", "voucher", "kupon", "hadiah", "lucky",
+                    "spin", "game", "invite", "ajak", "poin", "coin", "mission", "misi",
+                    "upgrade", "pinjaman", "cicil", "paylater", "chat", "pesan",
+                    "spesial", "khusus kamu", "klaim", "ajak teman"
+                )
+                if (promoKeywords.any { combined.contains(it) }) {
+                    val isMarketingMessage = combined.contains("cashback") ||
+                            combined.contains("voucher") ||
+                            combined.contains("klaim") ||
+                            combined.contains("amplop") ||
+                            combined.contains("promo") ||
+                            combined.contains("diskon")
+                    val isRealIncoming = combined.contains("berhasil menerima") ||
+                            combined.contains("berhasil diterima") ||
+                            combined.contains("pembayaran qris") ||
+                            (combined.contains("transfer masuk") && !combined.contains("voucher"))
+                    if (isMarketingMessage || !isRealIncoming) {
+                        return FilterDecision(false, "Notifikasi terdeteksi promo / spam")
+                    }
+                }
+            }
+
+            val resolvedAmount = amount ?: extractAmount("$title $text $subText")
+            if (requireAmount && (resolvedAmount == null || resolvedAmount <= 0L)) {
+                return FilterDecision(false, "Tidak terdeteksi nominal pembayaran yang valid")
+            }
+
+            val paymentKeywords = listOf(
+                "berhasil", "menerima", "diterima", "terima", "masuk", "paid",
+                "received", "pembayaran", "transaksi", "sukses", "qris"
+            )
+            val hasPaymentKeyword = paymentKeywords.any { combined.contains(it) }
+            if (mode != "all" && !hasPaymentKeyword) {
+                return FilterDecision(false, "Bukan notifikasi transaksi masuk yang valid")
+            }
+
+            return FilterDecision(true, "Notifikasi valid")
         }
     }
 }
+
+data class FilterDecision(
+    val allowed: Boolean,
+    val reason: String = ""
+)
