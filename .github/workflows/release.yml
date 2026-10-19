@@ -1,0 +1,93 @@
+name: Build & Release APK
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag rilis yang dibuat, contoh: v1.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  ANDROID_PLATFORM: "platforms;android-36.1"
+  ANDROID_BUILD_TOOLS: "build-tools;36.1.0"
+
+jobs:
+  release:
+    name: Build debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Tentukan versi rilis
+        id: version
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "value=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "${{ env.ANDROID_PLATFORM }} ${{ env.ANDROID_BUILD_TOOLS }} platform-tools"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Buat debug keystore
+        run: |
+          if [ ! -f debug.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore debug.keystore \
+              -alias androiddebugkey \
+              -storepass android \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Build APK
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Siapkan berkas APK
+        id: apk
+        run: |
+          set -euo pipefail
+          SRC=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          NAME="Bayarin-${{ steps.version.outputs.value }}.apk"
+          mkdir -p dist
+          cp "$SRC" "dist/$NAME"
+          echo "path=dist/$NAME" >> "$GITHUB_OUTPUT"
+          ls -la dist
+
+      - name: Simpan APK sebagai artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bayarin-${{ steps.version.outputs.value }}-apk
+          path: ${{ steps.apk.outputs.path }}
+
+      - name: Publikasikan GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.value }}
+          name: ${{ steps.version.outputs.value }}
+          files: ${{ steps.apk.outputs.path }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true

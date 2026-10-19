@@ -5,7 +5,8 @@
 ![Android](https://img.shields.io/badge/Platform-Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Language-Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)
-![Release](https://img.shields.io/badge/Version-1.0.0-blue?style=for-the-badge)
+![Release](https://img.shields.io/github/v/release/febzofc/merchant-notification-forwarder?style=for-the-badge)
+![Build](https://github.com/febzofc/merchant-notification-forwarder/actions/workflows/release.yml/badge.svg)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
 **Aplikasi Android untuk meneruskan notifikasi pembayaran QRIS, e-wallet, dan transaksi merchant ke webhook / REST API server secara real-time.**
@@ -14,6 +15,18 @@
 
 ---
 </div>
+
+## 📥 Unduh Aplikasi
+
+APK siap pasang tersedia di halaman **[Releases](https://github.com/febzofc/merchant-notification-forwarder/releases/latest)**.
+
+1. Buka halaman **Releases**, lalu unduh berkas `Bayarin-vX.Y.apk` pada bagian *Assets*.
+2. Pindahkan ke perangkat Android, lalu pasang (*install*). Karena APK ini tidak diunduh dari Play Store, Anda perlu mengizinkan **Install unknown apps** untuk aplikasi pengelola berkas/browser yang Anda gunakan.
+3. Lanjutkan ke [Panduan Instalasi & Penggunaan](#-panduan-instalasi--penggunaan) bagian konfigurasi izin.
+
+> Catatan: APK pada rilis ini di-sign dengan *debug keystore* agar siapa pun bisa memasangnya tanpa kunci rilis pribadi. Untuk distribusi komersial/Play Store, build ulang dengan keystore rilis Anda sendiri.
+
+---
 
 ## 📌 Tentang Aplikasi
 
@@ -142,6 +155,23 @@ cd merchant-notification-forwarder
 # Output APK akan berada di:
 # app/build/outputs/apk/debug/app-debug.apk
 ```
+
+### Membuat Rilis Baru (Otomatis)
+
+Rilis dipublikasikan otomatis oleh GitHub Actions (`.github/workflows/release.yml`). Cukup buat dan push tag:
+
+```bash
+git tag v1.0
+git push origin v1.0
+```
+
+Setelah tag terkirim, GitHub akan otomatis:
+1. Menyiapkan JDK, Android SDK, dan Gradle,
+2. Membangun APK debug (`assembleDebug`),
+3. Membuat GitHub Release bernama sesuai tag, dan
+4. Melampirkan APK tersebut sebagai aset rilis.
+
+Anda juga bisa menjalankannya manual dari tab **Actions → Build & Release APK → Run workflow** dengan mengisi nama tag.
 
 ---
 
