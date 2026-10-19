@@ -52,11 +52,6 @@ class NotificationForwarderService : NotificationListenerService() {
             return
         }
 
-        if (!shouldForward(packageName, filterMode, customPackage)) {
-            Log.d("NotificationForwarder", "Package $packageName filtered out by mode $filterMode")
-            return
-        }
-
         val extras = sbn.notification.extras ?: return
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
@@ -67,13 +62,20 @@ class NotificationForwarderService : NotificationListenerService() {
             return
         }
 
+        if (!shouldForward(packageName, title, text, filterMode, customPackage)) {
+            Log.d("NotificationForwarder", "Package $packageName filtered out by mode $filterMode")
+            return
+        }
+
         val uniqueId = "${sbn.packageName}_${sbn.id}_${sbn.postTime}"
+        val provider = detectProvider(packageName, title, text)
+        val amount = extractAmount("$title $text")
 
         // Create log item in SENDING status
         val logItem = ForwardLog(
             id = uniqueId,
             timestamp = System.currentTimeMillis(),
-            packageName = packageName,
+            packageName = if (provider != "OTHER") "[$provider] $packageName" else packageName,
             title = title,
             text = text,
             status = "SENDING"
@@ -84,11 +86,19 @@ class NotificationForwarderService : NotificationListenerService() {
         serviceScope.launch {
             try {
                 val json = JSONObject().apply {
+                    put("app", "Bayarin")
                     put("id", sbn.id)
                     put("uniqueId", uniqueId)
+                    put("provider", provider)
                     put("packageName", packageName)
                     put("title", title)
                     put("text", text)
+                    put("message", text)
+                    put("rawText", "$title: $text")
+                    if (amount != null) {
+                        put("amount", amount)
+                        put("nominal", amount)
+                    }
                     put("subText", subText)
                     put("postTime", sbn.postTime)
                     put("timestamp", System.currentTimeMillis())
@@ -98,19 +108,27 @@ class NotificationForwarderService : NotificationListenerService() {
                 val request = Request.Builder()
                     .url(webhookUrl)
                     .post(body)
+                    .header("User-Agent", "Bayarin-Forwarder/1.0")
                     .build()
 
                 client.newCall(request).execute().use { response ->
+                    val responseBody = response.body?.string()?.take(250) ?: ""
                     if (response.isSuccessful) {
                         NotificationStateHolder.addLog(
                             logItem.copy(
                                 status = "SUCCESS",
-                                responseCode = response.code
+                                responseCode = response.code,
+                                text = if (responseBody.isNotEmpty()) "$text\n-> $responseBody" else text
                             )
                         )
-                        Log.d("NotificationForwarder", "Successfully forwarded notification from $packageName to webhook")
+                        Log.d("Bayarin", "Successfully forwarded notification from $packageName to webhook")
+                        NotificationHelper.sendForwardNotification(
+                            this@NotificationForwarderService,
+                            provider,
+                            title,
+                            text
+                        )
                     } else {
-                        val responseBody = response.body?.string()?.take(200) ?: ""
                         NotificationStateHolder.addLog(
                             logItem.copy(
                                 status = "FAILED",
@@ -118,28 +136,74 @@ class NotificationForwarderService : NotificationListenerService() {
                                 error = "HTTP ${response.code}: $responseBody"
                             )
                         )
-                        Log.e("NotificationForwarder", "Failed forwarding: HTTP ${response.code}")
+                        Log.e("Bayarin", "Failed forwarding: HTTP ${response.code} - $responseBody")
                     }
                 }
             } catch (e: Exception) {
+                val errorMsg = e.localizedMessage ?: e.message ?: "Unknown Connection Error"
                 NotificationStateHolder.addLog(
                     logItem.copy(
                         status = "FAILED",
-                        error = e.localizedMessage ?: e.message ?: "Unknown Connection Error"
+                        error = errorMsg
                     )
                 )
-                Log.e("NotificationForwarder", "Error forwarding notification", e)
+                Log.e("Bayarin", "Error forwarding notification: $errorMsg", e)
             }
         }
     }
 
-    private fun shouldForward(packageName: String, mode: String, customFilter: String): Boolean {
+    private fun extractAmount(text: String): Long? {
+        return try {
+            val regex = Regex("""(?:Rp|IDR)\s*([0-9.,]+)""", RegexOption.IGNORE_CASE)
+            val match = regex.find(text) ?: return null
+            val numStr = match.groupValues[1].replace(".", "").replace(",", "")
+            numStr.toLongOrNull()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun detectProvider(pkg: String, title: String, text: String): String {
+        val combined = "$pkg $title $text".lowercase()
+        return when {
+            pkg.contains("dana") || combined.contains("dana") -> "DANA"
+            pkg.contains("gopay") || pkg.contains("gobiz") || pkg.contains("gojek") || combined.contains("gopay") || combined.contains("gobiz") -> "GOPAY"
+            pkg.contains("ovo") || combined.contains("ovo") -> "OVO"
+            pkg.contains("shopee") || combined.contains("shopeepay") -> "SHOPEEPAY"
+            pkg.contains("linkaja") || combined.contains("linkaja") -> "LINKAJA"
+            combined.contains("qris") -> "QRIS"
+            else -> "OTHER"
+        }
+    }
+
+    private fun shouldForward(packageName: String, title: String, text: String, mode: String, customFilter: String): Boolean {
+        val combined = "$packageName $title $text".lowercase()
         return when (mode) {
             "all" -> true
-            "gopay" -> {
+            "qris", "gopay", "merchant" -> {
+                packageName.contains("dana", ignoreCase = true) ||
                 packageName.contains("gojek.gobiz", ignoreCase = true) ||
                 packageName.contains("gopay", ignoreCase = true) ||
-                packageName.contains("gopay.merchant", ignoreCase = true)
+                packageName.contains("gojek.app", ignoreCase = true) ||
+                combined.contains("dana") ||
+                combined.contains("gopay") ||
+                combined.contains("gobiz") ||
+                combined.contains("qris")
+            }
+            "all_qris" -> {
+                packageName.contains("dana", ignoreCase = true) ||
+                packageName.contains("gopay", ignoreCase = true) ||
+                packageName.contains("gobiz", ignoreCase = true) ||
+                packageName.contains("gojek", ignoreCase = true) ||
+                packageName.contains("ovo", ignoreCase = true) ||
+                packageName.contains("shopee", ignoreCase = true) ||
+                packageName.contains("linkaja", ignoreCase = true) ||
+                packageName.contains("bca", ignoreCase = true) ||
+                packageName.contains("bmri", ignoreCase = true) ||
+                packageName.contains("livin", ignoreCase = true) ||
+                combined.contains("qris") ||
+                combined.contains("dana") ||
+                combined.contains("gopay")
             }
             "custom" -> {
                 packageName.equals(customFilter.trim(), ignoreCase = true)

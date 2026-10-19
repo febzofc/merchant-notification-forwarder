@@ -47,24 +47,44 @@ data class ForwardLog(
 }
 
 object NotificationStateHolder {
-    private const val PREFS_NAME = "gopay_forwarder_prefs"
+    private const val PREFS_NAME = "bayarin_prefs"
+    private const val OLD_PREFS_NAME = "gopay_forwarder_prefs"
     private const val KEY_LOGS = "notification_logs"
     private const val KEY_WEBHOOK_URL = "webhook_url"
-    private const val KEY_FILTER_MODE = "filter_mode" // "gopay", "all", "custom"
+    private const val KEY_FILTER_MODE = "filter_mode" // "qris" (GoPay & DANA), "all_qris", "all", "custom"
     private const val KEY_CUSTOM_PACKAGE = "custom_package"
 
     val recentLogs = MutableStateFlow<List<ForwardLog>>(emptyList())
     val webhookUrl = MutableStateFlow("")
-    val filterMode = MutableStateFlow("gopay")
+    val filterMode = MutableStateFlow("qris")
     val customPackage = MutableStateFlow("")
 
     private lateinit var prefs: SharedPreferences
 
     fun init(context: Context) {
-        prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        webhookUrl.value = prefs.getString(KEY_WEBHOOK_URL, "") ?: ""
-        filterMode.value = prefs.getString(KEY_FILTER_MODE, "gopay") ?: "gopay"
-        customPackage.value = prefs.getString(KEY_CUSTOM_PACKAGE, "") ?: ""
+        val appContext = context.applicationContext
+        prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val oldPrefs = appContext.getSharedPreferences(OLD_PREFS_NAME, Context.MODE_PRIVATE)
+
+        val savedUrl = prefs.getString(KEY_WEBHOOK_URL, null)
+            ?: oldPrefs.getString(KEY_WEBHOOK_URL, "") ?: ""
+        val savedMode = prefs.getString(KEY_FILTER_MODE, null)
+            ?: oldPrefs.getString(KEY_FILTER_MODE, "qris") ?: "qris"
+        val savedCustom = prefs.getString(KEY_CUSTOM_PACKAGE, null)
+            ?: oldPrefs.getString(KEY_CUSTOM_PACKAGE, "") ?: ""
+
+        webhookUrl.value = savedUrl
+        filterMode.value = if (savedMode == "gopay") "qris" else savedMode
+        customPackage.value = savedCustom
+
+        if (!prefs.contains(KEY_WEBHOOK_URL) && savedUrl.isNotEmpty()) {
+            prefs.edit()
+                .putString(KEY_WEBHOOK_URL, savedUrl)
+                .putString(KEY_FILTER_MODE, filterMode.value)
+                .putString(KEY_CUSTOM_PACKAGE, savedCustom)
+                .apply()
+        }
+
         loadLogs()
     }
 

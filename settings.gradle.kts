@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "GoPay Forwarder"
+rootProject.name = "Bayarin"
 
 include(":app")
