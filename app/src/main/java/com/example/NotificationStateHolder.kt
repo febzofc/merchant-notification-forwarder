@@ -53,11 +53,15 @@ object NotificationStateHolder {
     private const val KEY_WEBHOOK_URL = "webhook_url"
     private const val KEY_FILTER_MODE = "filter_mode" // "qris" (GoPay & DANA), "all_qris", "all", "custom"
     private const val KEY_CUSTOM_PACKAGE = "custom_package"
+    private const val KEY_BLOCK_PROMOS = "block_promos"
+    private const val KEY_REQUIRE_AMOUNT = "require_amount"
 
     val recentLogs = MutableStateFlow<List<ForwardLog>>(emptyList())
     val webhookUrl = MutableStateFlow("")
     val filterMode = MutableStateFlow("qris")
     val customPackage = MutableStateFlow("")
+    val blockPromos = MutableStateFlow(true)
+    val requireAmount = MutableStateFlow(true)
 
     private lateinit var prefs: SharedPreferences
 
@@ -72,16 +76,22 @@ object NotificationStateHolder {
             ?: oldPrefs.getString(KEY_FILTER_MODE, "qris") ?: "qris"
         val savedCustom = prefs.getString(KEY_CUSTOM_PACKAGE, null)
             ?: oldPrefs.getString(KEY_CUSTOM_PACKAGE, "") ?: ""
+        val savedBlockPromos = prefs.getBoolean(KEY_BLOCK_PROMOS, true)
+        val savedRequireAmount = prefs.getBoolean(KEY_REQUIRE_AMOUNT, true)
 
         webhookUrl.value = savedUrl
         filterMode.value = if (savedMode == "gopay") "qris" else savedMode
         customPackage.value = savedCustom
+        blockPromos.value = savedBlockPromos
+        requireAmount.value = savedRequireAmount
 
         if (!prefs.contains(KEY_WEBHOOK_URL) && savedUrl.isNotEmpty()) {
             prefs.edit()
                 .putString(KEY_WEBHOOK_URL, savedUrl)
                 .putString(KEY_FILTER_MODE, filterMode.value)
                 .putString(KEY_CUSTOM_PACKAGE, savedCustom)
+                .putBoolean(KEY_BLOCK_PROMOS, savedBlockPromos)
+                .putBoolean(KEY_REQUIRE_AMOUNT, savedRequireAmount)
                 .apply()
         }
 
@@ -101,6 +111,16 @@ object NotificationStateHolder {
     fun saveCustomPackage(pkg: String) {
         customPackage.value = pkg
         prefs.edit().putString(KEY_CUSTOM_PACKAGE, pkg).apply()
+    }
+
+    fun saveBlockPromos(enabled: Boolean) {
+        blockPromos.value = enabled
+        prefs.edit().putBoolean(KEY_BLOCK_PROMOS, enabled).apply()
+    }
+
+    fun saveRequireAmount(enabled: Boolean) {
+        requireAmount.value = enabled
+        prefs.edit().putBoolean(KEY_REQUIRE_AMOUNT, enabled).apply()
     }
 
     @Synchronized

@@ -176,37 +176,67 @@ class NotificationForwarderService : NotificationListenerService() {
         }
     }
 
+    private fun isActualPaymentNotification(title: String, text: String): Boolean {
+        val combined = "$title $text".lowercase()
+
+        // Reject spam / promo / marketing / chat notifications
+        val promoKeywords = listOf(
+            "promo", "diskon", "cashback", "voucher", "kupon", "hadiah", "lucky",
+            "spin", "game", "invite", "ajak", "poin", "coin", "mission", "misi",
+            "upgrade", "pinjaman", "cicil", "paylater", "chat", "pesan",
+            "spesial", "khusus kamu", "klaim", "ajak teman"
+        )
+        if (promoKeywords.any { combined.contains(it) }) {
+            val hasStrongPayment = combined.contains("berhasil") || combined.contains("menerima") || combined.contains("diterima") || combined.contains("qris")
+            if (!hasStrongPayment) return false
+        }
+
+        // Must contain payment / incoming transaction indicators AND valid amount
+        val paymentKeywords = listOf(
+            "berhasil", "menerima", "diterima", "terima", "masuk", "paid",
+            "received", "pembayaran", "transaksi", "sukses", "qris", "rp", "idr"
+        )
+        val hasPaymentKeyword = paymentKeywords.any { combined.contains(it) }
+        val amount = extractAmount(combined)
+
+        return hasPaymentKeyword && amount != null && amount > 0L
+    }
+
     private fun shouldForward(packageName: String, title: String, text: String, mode: String, customFilter: String): Boolean {
         val combined = "$packageName $title $text".lowercase()
+        val isPayment = isActualPaymentNotification(title, text)
+
         return when (mode) {
-            "all" -> true
+            "all" -> true // In all mode, we still filter out obvious promos if desired, or allow all. Let's still require payment for financial apps or allow all if user chose all. Wait, if mode is "all", user wants everything. But for "qris", "gopay", "merchant", "all_qris", we strictly require isPayment.
             "qris", "gopay", "merchant" -> {
-                packageName.contains("dana", ignoreCase = true) ||
-                packageName.contains("gojek.gobiz", ignoreCase = true) ||
-                packageName.contains("gopay", ignoreCase = true) ||
-                packageName.contains("gojek.app", ignoreCase = true) ||
-                combined.contains("dana") ||
-                combined.contains("gopay") ||
-                combined.contains("gobiz") ||
-                combined.contains("qris")
+                val isTargetApp = packageName.contains("dana", ignoreCase = true) ||
+                    packageName.contains("gojek.gobiz", ignoreCase = true) ||
+                    packageName.contains("gopay", ignoreCase = true) ||
+                    packageName.contains("gojek.app", ignoreCase = true) ||
+                    combined.contains("dana") ||
+                    combined.contains("gopay") ||
+                    combined.contains("gobiz") ||
+                    combined.contains("qris")
+                isTargetApp && isPayment
             }
             "all_qris" -> {
-                packageName.contains("dana", ignoreCase = true) ||
-                packageName.contains("gopay", ignoreCase = true) ||
-                packageName.contains("gobiz", ignoreCase = true) ||
-                packageName.contains("gojek", ignoreCase = true) ||
-                packageName.contains("ovo", ignoreCase = true) ||
-                packageName.contains("shopee", ignoreCase = true) ||
-                packageName.contains("linkaja", ignoreCase = true) ||
-                packageName.contains("bca", ignoreCase = true) ||
-                packageName.contains("bmri", ignoreCase = true) ||
-                packageName.contains("livin", ignoreCase = true) ||
-                combined.contains("qris") ||
-                combined.contains("dana") ||
-                combined.contains("gopay")
+                val isTargetApp = packageName.contains("dana", ignoreCase = true) ||
+                    packageName.contains("gopay", ignoreCase = true) ||
+                    packageName.contains("gobiz", ignoreCase = true) ||
+                    packageName.contains("gojek", ignoreCase = true) ||
+                    packageName.contains("ovo", ignoreCase = true) ||
+                    packageName.contains("shopee", ignoreCase = true) ||
+                    packageName.contains("linkaja", ignoreCase = true) ||
+                    packageName.contains("bca", ignoreCase = true) ||
+                    packageName.contains("bmri", ignoreCase = true) ||
+                    packageName.contains("livin", ignoreCase = true) ||
+                    combined.contains("qris") ||
+                    combined.contains("dana") ||
+                    combined.contains("gopay")
+                isTargetApp && isPayment
             }
             "custom" -> {
-                packageName.equals(customFilter.trim(), ignoreCase = true)
+                packageName.equals(customFilter.trim(), ignoreCase = true) && isPayment
             }
             else -> false
         }

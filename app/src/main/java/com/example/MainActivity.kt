@@ -206,6 +206,8 @@ fun MainScreen(
     val webhookUrl by NotificationStateHolder.webhookUrl.collectAsState()
     val filterMode by NotificationStateHolder.filterMode.collectAsState()
     val customPackage by NotificationStateHolder.customPackage.collectAsState()
+    val blockPromos by NotificationStateHolder.blockPromos.collectAsState()
+    val requireAmount by NotificationStateHolder.requireAmount.collectAsState()
     val logs by NotificationStateHolder.recentLogs.collectAsState()
 
     var inputUrl by remember { mutableStateOf(webhookUrl) }
@@ -705,6 +707,181 @@ fun MainScreen(
                 }
             }
 
+            // Section 3.5: Anti-Spam & Payment Validation Settings
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Security,
+                                contentDescription = "Anti-Spam",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Perlindungan Anti-Spam DANA & QRIS",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        // Switch 1: Block Promos & Ads
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Text(
+                                    text = "Blokir Notifikasi Promo & Iklan DANA",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "Abaikan otomatis DANA Kaget, voucher diskon, promo cashback, & misi agar tidak spam ke server webhook.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = blockPromos,
+                                onCheckedChange = { NotificationStateHolder.saveBlockPromos(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                                )
+                            )
+                        }
+
+                        Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                        // Switch 2: Require Amount
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Text(
+                                    text = "Wajib Memiliki Nominal Uang (Rp)",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "Hanya teruskan jika terdapat nominal uang transaksi (menghindari error server 'Notifikasi diabaikan').",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = requireAmount,
+                                onCheckedChange = { NotificationStateHolder.saveRequireAmount(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                                )
+                            )
+                        }
+
+                        Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                        // Simulation Test Buttons
+                        Text(
+                            text = "Uji Coba Filter Anti-Spam:",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    val testEval = NotificationForwarderService.evaluateFilter(
+                                        packageName = "id.dana",
+                                        title = "DANA Bisnis",
+                                        text = "Pembayaran QRIS Rp 50.000 berhasil diterima dari Pelanggan",
+                                        subText = "",
+                                        mode = filterMode,
+                                        customPackage = customPackage,
+                                        blockPromos = blockPromos,
+                                        requireAmount = requireAmount,
+                                        amount = 50000L,
+                                        provider = "DANA"
+                                    )
+                                    if (testEval.allowed) {
+                                        Toast.makeText(context, "✅ Lolos: Notifikasi pembayaran QRIS sah akan diteruskan!", Toast.LENGTH_LONG).show()
+                                    } else {
+                                        Toast.makeText(context, "❌ Ditolak: ${testEval.reason}", Toast.LENGTH_LONG).show()
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)
+                            ) {
+                                Text("Simulasi QRIS Sah", fontSize = 11.sp, maxLines = 1)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    val testEval = NotificationForwarderService.evaluateFilter(
+                                        packageName = "id.dana",
+                                        title = "DANA",
+                                        text = "Promo Serbu Cashback 50% hingga Rp 15.000 menunggumu hari ini!",
+                                        subText = "",
+                                        mode = filterMode,
+                                        customPackage = customPackage,
+                                        blockPromos = blockPromos,
+                                        requireAmount = requireAmount,
+                                        amount = 15000L,
+                                        provider = "DANA"
+                                    )
+                                    if (!testEval.allowed) {
+                                        Toast.makeText(context, "🛡️ Dicegah! ${testEval.reason} (Server aman dari spam)", Toast.LENGTH_LONG).show()
+                                        NotificationStateHolder.addLog(
+                                            ForwardLog(
+                                                id = "test_promo_${System.currentTimeMillis()}",
+                                                timestamp = System.currentTimeMillis(),
+                                                packageName = "[DANA] id.dana",
+                                                title = "DANA (Promo)",
+                                                text = "Promo Serbu Cashback 50%...\n🛡️ ${testEval.reason}",
+                                                status = "BLOCKED",
+                                                error = testEval.reason
+                                            )
+                                        )
+                                    } else {
+                                        Toast.makeText(context, "⚠️ Tidak terblokir: cek pengaturan", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)
+                            ) {
+                                Text("Simulasi Promo DANA", fontSize = 11.sp, maxLines = 1)
+                            }
+                        }
+                    }
+                }
+            }
+
             // Section 4: Log Header
             item {
                 Row(
@@ -813,6 +990,11 @@ fun LogCard(log: ForwardLog) {
                         Color(0xFFC62828),
                         "FAILED"
                     )
+                    "BLOCKED" -> Triple(
+                        Color(0xFFFFF3E0),
+                        Color(0xFFE65100),
+                        "DITOLAK (ANTI-SPAM)"
+                    )
                     else -> Triple(
                         Color(0xFFE3F2FD),
                         Color(0xFF1565C0),
@@ -856,14 +1038,15 @@ fun LogCard(log: ForwardLog) {
             }
 
             if (log.error != null) {
+                val isBlocked = log.status == "BLOCKED"
                 Text(
-                    text = "Error: ${log.error}",
+                    text = if (isBlocked) "Alasan: ${log.error}" else "Error: ${log.error}",
                     fontSize = 11.sp,
-                    color = Color(0xFFC62828),
+                    color = if (isBlocked) Color(0xFFE65100) else Color(0xFFC62828),
                     fontFamily = FontFamily.Monospace,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFFFFEBEE).copy(alpha = 0.5f))
+                        .background(if (isBlocked) Color(0xFFFFF3E0) else Color(0xFFFFEBEE).copy(alpha = 0.5f))
                         .padding(6.dp)
                         .clip(RoundedCornerShape(4.dp))
                 )
