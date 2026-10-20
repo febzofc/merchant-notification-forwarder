@@ -17,7 +17,8 @@
 </div>
 
 ## 📥 Unduh Aplikasi
-## MATIKAN GOOGLE PLAY PORTECT AGAR LANGSUNG DAPAT DI INSTALL TANPA ADB APLIKASI OPEN SOURCE AMAN
+
+> ⚠️ **Penting:** matikan **Google Play Protect** agar APK bisa langsung dipasang tanpa ADB. Aplikasi ini open source — kode dan APK-nya bisa Anda verifikasi sendiri.
 
 APK siap pasang tersedia di halaman **[Releases](https://github.com/febzofc/merchant-notification-forwarder/releases/latest)**.
 
