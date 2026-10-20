@@ -17,6 +17,7 @@
 </div>
 
 ## 📥 Unduh Aplikasi
+## MATIKAN GOOGLE PLAY PORTECT AGAR LANGSUNG DAPAT DI INSTALL TANPA ADB APLIKASI OPEN SOURCE AMAN
 
 APK siap pasang tersedia di halaman **[Releases](https://github.com/febzofc/merchant-notification-forwarder/releases/latest)**.
 
