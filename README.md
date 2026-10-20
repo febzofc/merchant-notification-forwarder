@@ -42,6 +42,14 @@ Google Play Protect memblokir otomatis aplikasi yang di-sideload dari browser/Wh
 
 Setiap rilis GitHub juga menyertakan berkas `.aab` untuk diunggah ke Play Console.
 
+### Provisioning cepat lewat ADB (gratis)
+
+```bash
+./scripts/provision-adb.sh Bayarin-v1.1.apk
+```
+
+Skrip ini memasang APK, memberi akses Notification Listener, mengizinkan notifikasi, dan mengecualikan aplikasi dari optimasi baterai — tanpa perlu menyentuh Play Protect. Jalankan untuk setiap perangkat merchant.
+
 ---
 
 ## 📌 Tentang Aplikasi
