@@ -24,6 +24,13 @@ class NotificationForwarderService : NotificationListenerService() {
         .readTimeout(15, TimeUnit.SECONDS)
         .build()
 
+    /**
+     * Mencegah satu notifikasi diteruskan berkali-kali. `onNotificationPosted`
+     * dipanggil ulang setiap notifikasi diperbarui, dan notifikasi konfirmasi
+     * milik aplikasi ini juga tertangkap oleh listener.
+     */
+    private val duplicateGuard = DuplicateGuard()
+
     override fun onCreate() {
         super.onCreate()
         Log.d("NotificationForwarder", "Service created")
@@ -41,7 +48,16 @@ class NotificationForwarderService : NotificationListenerService() {
         if (sbn == null) return
 
         val packageName = sbn.packageName ?: ""
-        
+
+        // Notifikasi milik Bayarin sendiri WAJIB diabaikan. Notifikasi
+        // "Pembayaran Masuk Diteruskan" berisi teks pembayaran asli, sehingga
+        // tanpa guard ini listener akan menangkapnya lagi dan meneruskannya
+        // tanpa henti (loop tak berujung ke webhook).
+        if (packageName == this.packageName) {
+            Log.d("NotificationForwarder", "Mengabaikan notifikasi milik sendiri")
+            return
+        }
+
         // Load configuration
         val filterMode = NotificationStateHolder.filterMode.value
         val customPackage = NotificationStateHolder.customPackage.value
@@ -86,6 +102,15 @@ class NotificationForwarderService : NotificationListenerService() {
         }
 
         val uniqueId = "${sbn.packageName}_${sbn.id}_${sbn.postTime}"
+
+        // Deduplikasi: satu notifikasi pembayaran hanya boleh diteruskan sekali
+        // per jendela waktu, meskipun sistem memanggil onNotificationPosted
+        // berkali-kali karena notifikasi diperbarui.
+        val dedupeKey = "$packageName|${sbn.id}|$title|$text|$subText|${amount ?: -1L}"
+        if (duplicateGuard.isDuplicate(dedupeKey)) {
+            Log.d("NotificationForwarder", "Notifikasi duplikat diabaikan untuk $packageName")
+            return
+        }
 
         // Create log item in SENDING status
         val logItem = ForwardLog(

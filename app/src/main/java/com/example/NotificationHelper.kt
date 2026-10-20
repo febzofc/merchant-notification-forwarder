@@ -11,6 +11,9 @@ object NotificationHelper {
     const val CHANNEL_SERVICE_ID = "bayarin_service_channel"
     const val CHANNEL_ALERT_ID = "bayarin_alert_channel"
 
+    /** ID notifikasi konfirmasi; tetap agar tidak menumpuk di notification shade. */
+    private const val ALERT_NOTIFICATION_ID = 2002
+
     fun initChannels(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -67,7 +70,9 @@ object NotificationHelper {
                 .setAutoCancel(true)
 
             val manager = NotificationManagerCompat.from(context)
-            manager.notify(System.currentTimeMillis().toInt(), builder.build())
+            // ID tetap: notifikasi baru menggantikan yang lama, bukan menumpuk
+            // di shade setiap kali pembayaran diteruskan.
+            manager.notify(ALERT_NOTIFICATION_ID, builder.build())
         } catch (e: Exception) {
             e.printStackTrace()
         }

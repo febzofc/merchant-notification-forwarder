@@ -46,7 +46,7 @@ Setiap rilis GitHub juga menyertakan berkas `.aab` untuk diunggah ke Play Consol
 ### Provisioning cepat lewat ADB (gratis)
 
 ```bash
-./scripts/provision-adb.sh Bayarin-v1.1.apk
+./scripts/provision-adb.sh Bayarin-v1.2.apk
 ```
 
 Skrip ini memasang APK, memberi akses Notification Listener, mengizinkan notifikasi, dan mengecualikan aplikasi dari optimasi baterai — tanpa perlu menyentuh Play Protect. Jalankan untuk setiap perangkat merchant.
@@ -85,6 +85,7 @@ Jika masih diblokir, sumbernya biasanya aplikasi keamanan bawaan vendor, bukan P
 ## ✨ Fitur Utama
 
 - ⚡ **Real-time Forwarding**: Notifikasi pembayaran langsung diteruskan ke webhook dalam hitungan milidetik setelah diterima.
+- 🔁 **Anti-Duplikat**: Satu notifikasi pembayaran hanya dikirim **sekali**. Update notifikasi dari aplikasi sumber diabaikan, dan notifikasi milik Bayarin sendiri tidak pernah ikut diteruskan (mencegah loop tanpa henti ke webhook).
 - 🛡️ **Smart Anti-Spam & Promo Filter**:
   - Memfilter dan memblokir notifikasi promo, voucher diskon, cashback, DANA Kaget, pinjaman/paylater, dan pesan marketing.
   - Memastikan hanya notifikasi transaksi pembayaran sah yang diteruskan ke server Anda.
