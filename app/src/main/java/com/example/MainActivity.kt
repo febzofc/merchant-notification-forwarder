@@ -517,8 +517,13 @@ fun MainScreen(
                         ) {
                             Button(
                                 onClick = {
-                                    NotificationStateHolder.saveWebhookUrl(inputUrl.trim())
-                                    Toast.makeText(context, "URL Webhook berhasil disimpan!", Toast.LENGTH_SHORT).show()
+                                    val validationError = validateWebhookUrl(inputUrl)
+                                    if (validationError != null) {
+                                        Toast.makeText(context, validationError, Toast.LENGTH_LONG).show()
+                                    } else {
+                                        NotificationStateHolder.saveWebhookUrl(inputUrl.trim())
+                                        Toast.makeText(context, "URL Webhook berhasil disimpan!", Toast.LENGTH_SHORT).show()
+                                    }
                                 },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp)
@@ -535,6 +540,11 @@ fun MainScreen(
                             FilledTonalButton(
                                 onClick = {
                                     val currentUrl = inputUrl.trim()
+                                    val validationError = validateWebhookUrl(currentUrl)
+                                    if (validationError != null) {
+                                        Toast.makeText(context, validationError, Toast.LENGTH_LONG).show()
+                                        return@FilledTonalButton
+                                    }
                                     if (currentUrl.isEmpty()) {
                                         Toast.makeText(context, "Masukkan URL terlebih dahulu!", Toast.LENGTH_SHORT).show()
                                         return@FilledTonalButton
@@ -1061,6 +1071,28 @@ data class WebhookTestResult(
     val message: String
 )
 
+/**
+ * Validasi URL webhook sebelum disimpan/diuji.
+ * Hanya HTTPS yang diizinkan: data notifikasi transaksi dikirim sebagai
+ * JSON polos, sehingga koneksi tanpa TLS tidak aman (dan diblokir OS).
+ *
+ * @return pesan kesalahan, atau null bila URL valid.
+ */
+internal fun validateWebhookUrl(rawUrl: String): String? {
+    val url = rawUrl.trim()
+    if (url.isEmpty()) return "Masukkan URL webhook terlebih dahulu."
+    val uri = try {
+        java.net.URI(url)
+    } catch (e: Exception) {
+        return "Format URL tidak valid."
+    }
+    if (!uri.scheme.equals("https", ignoreCase = true)) {
+        return "URL harus diawali https:// — koneksi HTTP tidak diizinkan."
+    }
+    if (uri.host.isNullOrBlank()) return "Host pada URL tidak valid."
+    return null
+}
+
 // Helper to test Webhook connection
 private suspend fun testWebhookConnection(url: String): WebhookTestResult {
     return withContext(Dispatchers.IO) {
@@ -1106,7 +1138,7 @@ private suspend fun testWebhookConnection(url: String): WebhookTestResult {
             val request = Request.Builder()
                 .url(url)
                 .post(body)
-                .header("User-Agent", "Bayarin-Android/1.0")
+                .header("User-Agent", "Bayarin-Android/${BuildConfig.VERSION_NAME}")
                 .build()
 
             client.newCall(request).execute().use { response ->

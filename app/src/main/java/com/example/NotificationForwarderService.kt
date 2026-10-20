@@ -124,7 +124,7 @@ class NotificationForwarderService : NotificationListenerService() {
                 val request = Request.Builder()
                     .url(webhookUrl)
                     .post(body)
-                    .header("User-Agent", "Bayarin-Forwarder/1.0")
+                    .header("User-Agent", "Bayarin-Forwarder/${BuildConfig.VERSION_NAME}")
                     .build()
 
                 client.newCall(request).execute().use { response ->

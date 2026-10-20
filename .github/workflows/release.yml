@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag rilis yang dibuat, contoh: v1.0"
+        description: "Tag rilis yang dibuat, contoh: v1.1"
         required: true
         type: string
 
@@ -20,7 +20,7 @@ env:
 
 jobs:
   release:
-    name: Build debug APK
+    name: Build signed release APK
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -49,33 +49,69 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Buat debug keystore
+      # APK wajib ditandatangani dengan keystore rilis yang tetap (bukan debug
+      # keystore). Jika signer berubah tiap rilis, pengguna tidak bisa melakukan
+      # update (muncul "App not installed") dan Play Protect menandai APK.
+      - name: Siapkan keystore rilis
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          if [ ! -f debug.keystore ]; then
-            keytool -genkeypair -v \
-              -keystore debug.keystore \
-              -alias androiddebugkey \
-              -storepass android \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
+          set -euo pipefail
+          if [ -z "${KEYSTORE_BASE64:-}" ]; then
+            echo "::error::Secret KEYSTORE_BASE64 belum diset. Tambahkan KEYSTORE_BASE64, STORE_PASSWORD, KEY_PASSWORD, dan KEY_ALIAS di Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > upload-keystore.jks
+          test -s upload-keystore.jks
+
+      - name: Build APK release
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/upload-keystore.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Verifikasi APK
+        id: verify
+        run: |
+          set -euo pipefail
+          APK=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          test -n "$APK"
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)
+
+          "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+
+          # Build release tidak boleh mengandung android:debuggable
+          if "$BUILD_TOOLS/aapt2" dump xmltree --file AndroidManifest.xml "$APK" | grep -q debuggable; then
+            echo "::error::APK masih mengandung android:debuggable=true"
+            exit 1
           fi
 
-      - name: Build APK
-        run: ./gradlew --no-daemon assembleDebug
+          FINGERPRINT=$("$BUILD_TOOLS/apksigner" verify --print-certs "$APK" | grep -i "SHA-256 digest" | head -n 1 | sed 's/.*digest: //')
+          echo "fingerprint=$FINGERPRINT" >> "$GITHUB_OUTPUT"
+          {
+            echo "### APK release tertandatangani"
+            echo ""
+            echo "- Berkas: \`$APK\`"
+            echo "- Signer SHA-256: \`$FINGERPRINT\`"
+            echo "- Ukuran: $(du -h "$APK" | cut -f1)"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Siapkan berkas APK
         id: apk
         run: |
           set -euo pipefail
-          SRC=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          SRC=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
           NAME="Bayarin-${{ steps.version.outputs.value }}.apk"
           mkdir -p dist
           cp "$SRC" "dist/$NAME"
           echo "path=dist/$NAME" >> "$GITHUB_OUTPUT"
           ls -la dist
+
+      - name: Hapus keystore
+        if: always()
+        run: rm -f upload-keystore.jks
 
       - name: Simpan APK sebagai artifact
         uses: actions/upload-artifact@v4
@@ -88,6 +124,12 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.value }}
           name: ${{ steps.version.outputs.value }}
+          body: |
+            APK ditandatangani dengan kunci rilis tetap.
+
+            **Signer SHA-256:** `${{ steps.verify.outputs.fingerprint }}`
+
+            Jika sebelumnya pernah memasang versi debug (v1.0), uninstall dulu
+            karena kunci penandatanganannya berbeda.
           files: ${{ steps.apk.outputs.path }}
-          generate_release_notes: true
           fail_on_unmatched_files: true

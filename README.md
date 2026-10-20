@@ -22,9 +22,12 @@ APK siap pasang tersedia di halaman **[Releases](https://github.com/febzofc/merc
 
 1. Buka halaman **Releases**, lalu unduh berkas `Bayarin-vX.Y.apk` pada bagian *Assets*.
 2. Pindahkan ke perangkat Android, lalu pasang (*install*). Karena APK ini tidak diunduh dari Play Store, Anda perlu mengizinkan **Install unknown apps** untuk aplikasi pengelola berkas/browser yang Anda gunakan.
-3. Lanjutkan ke [Panduan Instalasi & Penggunaan](#-panduan-instalasi--penggunaan) bagian konfigurasi izin.
+3. Jika pernah memasang versi **v1.0** (yang ditandatangani debug key), **uninstall dulu** — kunci penandatanganannya berbeda sehingga update tidak akan terpasang.
+4. Lanjutkan ke [Panduan Instalasi & Penggunaan](#-panduan-instalasi--penggunaan) bagian konfigurasi izin.
 
-> Catatan: APK pada rilis ini di-sign dengan *debug keystore* agar siapa pun bisa memasangnya tanpa kunci rilis pribadi. Untuk distribusi komersial/Play Store, build ulang dengan keystore rilis Anda sendiri.
+> **Keamanan:** mulai v1.1, APK ditandatangani dengan kunci rilis tetap dan hanya menerima webhook **HTTPS**. Fingerprint SHA-256 signer dicantumkan pada catatan setiap rilis — cocokkan dengan `keytool -printcert -jarfile Bayarin-vX.Y.apk` untuk memastikan APK tidak dimodifikasi. Trafik HTTP biasa diblokir, dan hanya sertifikat sistem yang dipercaya.
+
+> **Distribusi:** keystore rilis disimpan sebagai secret GitHub (`KEYSTORE_BASE64`, `STORE_PASSWORD`, `KEY_PASSWORD`, `KEY_ALIAS`), tidak pernah masuk repo.
 
 ---
 
