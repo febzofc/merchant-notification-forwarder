@@ -21,11 +21,11 @@
 APK siap pasang tersedia di halaman **[Releases](https://github.com/febzofc/merchant-notification-forwarder/releases/latest)**.
 
 1. Buka halaman **Releases**, lalu unduh berkas `Bayarin-vX.Y.apk` pada bagian *Assets*.
-2. Pindahkan ke perangkat Android, lalu pasang (*install*). Karena APK ini tidak diunduh dari Play Store, Anda perlu mengizinkan **Install unknown apps** untuk aplikasi pengelola berkas/browser yang Anda gunakan.
+2. Pindahkan ke perangkat Android, lalu pasang (*install*). Karena APK ini tidak diunduh dari Play Store, Anda perlu mengizinkan **Install unknown apps** untuk aplikasi pengelola berkas/browser yang Anda gunakan. Jika muncul *"App blocked to protect your device"*, lihat [bagian Play Protect](#memasang-langsung-dari-browser-nonaktifkan-play-protect) atau gunakan ADB di bawah.
 3. Jika pernah memasang versi **v1.0** (yang ditandatangani debug key), **uninstall dulu** — kunci penandatanganannya berbeda sehingga update tidak akan terpasang.
 4. Lanjutkan ke [Panduan Instalasi & Penggunaan](#-panduan-instalasi--penggunaan) bagian konfigurasi izin.
 
-> **Keamanan:** mulai v1.1, APK ditandatangani dengan kunci rilis tetap dan hanya menerima webhook **HTTPS**. Fingerprint SHA-256 signer dicantumkan pada catatan setiap rilis — cocokkan dengan `keytool -printcert -jarfile Bayarin-vX.Y.apk` untuk memastikan APK tidak dimodifikasi. Trafik HTTP biasa diblokir, dan hanya sertifikat sistem yang dipercaya.
+> **Keamanan:** mulai v1.1, APK ditandatangani dengan kunci rilis tetap dan hanya menerima webhook **HTTPS**. Fingerprint SHA-256 signer dicantumkan pada catatan setiap rilis — cocokkan dengan `apksigner verify --print-certs Bayarin-vX.Y.apk` untuk memastikan APK tidak dimodifikasi. Trafik HTTP biasa diblokir, dan hanya sertifikat sistem yang dipercaya.
 
 > **Distribusi:** keystore rilis disimpan sebagai secret GitHub (`KEYSTORE_BASE64`, `STORE_PASSWORD`, `KEY_PASSWORD`, `KEY_ALIAS`), tidak pernah masuk repo.
 
@@ -49,6 +49,29 @@ Setiap rilis GitHub juga menyertakan berkas `.aab` untuk diunggah ke Play Consol
 ```
 
 Skrip ini memasang APK, memberi akses Notification Listener, mengizinkan notifikasi, dan mengecualikan aplikasi dari optimasi baterai — tanpa perlu menyentuh Play Protect. Jalankan untuk setiap perangkat merchant.
+
+### Memasang langsung dari browser: nonaktifkan Play Protect
+
+Jika tidak ada PC untuk ADB, Play Protect bisa dinonaktifkan sementara di perangkat **milik Anda sendiri** agar APK dapat dipasang dari browser/file manager:
+
+1. Buka **Play Store** → foto profil kanan atas → **Play Protect**
+2. Ketuk ikon **gerigi** (Pengaturan)
+3. Matikan **"Pindai aplikasi dengan Play Protect"**
+4. Jika tersedia, matikan juga **"Tingkatkan deteksi aplikasi berbahaya"**
+5. Pasang `Bayarin-vX.Y.apk`, lalu pilih **"Install anyway"** bila muncul
+6. Setelah terpasang, pemindaian boleh diaktifkan kembali
+
+Jika masih diblokir, sumbernya biasanya aplikasi keamanan bawaan vendor, bukan Play Protect:
+
+| Merek | Yang perlu dimatikan |
+|---|---|
+| Infinix / Tecno / itel | **Phone Master** → App Shield / pemindaian instalasi |
+| Xiaomi / Redmi (HyperOS) | Security → **Auto Blocker** |
+| Samsung | Settings → Security and privacy → **Auto Blocker** |
+| Oppo / Realme | Security → **App Security Scan** / Payment Protection |
+| Vivo | iManager → **Installation guard** |
+
+> ⚠️ **Peringatan:** menonaktifkan Play Protect melemahkan perlindungan perangkat terhadap aplikasi berbahaya. Lakukan hanya pada perangkat yang Anda miliki/kelola, dan beri tahu pemilik perangkat. Untuk distribusi massal, gunakan ADB atau Play Console — jangan meminta pengguna mematikan proteksinya.
 
 ---
 
