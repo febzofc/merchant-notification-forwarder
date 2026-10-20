@@ -70,7 +70,7 @@ jobs:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-        run: ./gradlew --no-daemon assembleRelease
+        run: ./gradlew --no-daemon assembleRelease bundleRelease
 
       - name: Verifikasi APK
         id: verify
@@ -109,6 +109,18 @@ jobs:
           echo "path=dist/$NAME" >> "$GITHUB_OUTPUT"
           ls -la dist
 
+      - name: Siapkan berkas AAB (Play Console)
+        id: aab
+        run: |
+          set -euo pipefail
+          SRC=$(find app/build/outputs/bundle/release -name "*.aab" | head -n 1)
+          NAME="Bayarin-${{ steps.version.outputs.value }}.aab"
+          mkdir -p dist
+          cp "$SRC" "dist/$NAME"
+          echo "path=dist/$NAME" >> "$GITHUB_OUTPUT"
+          jarsigner -verify "$SRC" >/dev/null
+          ls -la dist
+
       - name: Hapus keystore
         if: always()
         run: rm -f upload-keystore.jks
@@ -118,6 +130,12 @@ jobs:
         with:
           name: Bayarin-${{ steps.version.outputs.value }}-apk
           path: ${{ steps.apk.outputs.path }}
+
+      - name: Simpan AAB sebagai artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bayarin-${{ steps.version.outputs.value }}-aab
+          path: ${{ steps.aab.outputs.path }}
 
       - name: Publikasikan GitHub Release
         uses: softprops/action-gh-release@v2
@@ -131,5 +149,7 @@ jobs:
 
             Jika sebelumnya pernah memasang versi debug (v1.0), uninstall dulu
             karena kunci penandatanganannya berbeda.
-          files: ${{ steps.apk.outputs.path }}
+          files: |
+            ${{ steps.apk.outputs.path }}
+            ${{ steps.aab.outputs.path }}
           fail_on_unmatched_files: true

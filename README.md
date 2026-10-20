@@ -29,6 +29,19 @@ APK siap pasang tersedia di halaman **[Releases](https://github.com/febzofc/merc
 
 > **Distribusi:** keystore rilis disimpan sebagai secret GitHub (`KEYSTORE_BASE64`, `STORE_PASSWORD`, `KEY_PASSWORD`, `KEY_ALIAS`), tidak pernah masuk repo.
 
+### Kenapa APK dari browser sering diblokir Play Protect?
+
+Google Play Protect memblokir otomatis aplikasi yang di-sideload dari browser/WhatsApp/file manager **jika** mendeklarasikan izin sensitif — dan `BIND_NOTIFICATION_LISTENER_SERVICE` termasuk di dalamnya ([developer guidance](https://developers.google.com/android/play-protect/warning-dev-guidance)). Pemicunya adalah izin + sumber instalasi, bukan tanda tangan APK. Karena itu jalur distribusi yang benar adalah:
+
+| Jalur | Status | Catatan |
+|---|---|---|
+| `adb install -r -d Bayarin-vX.Y.apk` | ✅ | Bukan "internet-sideloading source". Untuk provisioning perangkat sendiri. |
+| Play Console **internal testing** | ✅ | Maks 100 tester, tanpa review, tersedia dalam hitungan menit. Upload `Bayarin-vX.Y.aab`. |
+| Managed Google Play **private app** | ✅ | Tanpa review publik, untuk organisasi/merchant dengan perangkat terkelola. |
+| Browser / WhatsApp / file manager | ❌ | Selalu diblokir dan tidak bisa diakali. |
+
+Setiap rilis GitHub juga menyertakan berkas `.aab` untuk diunggah ke Play Console.
+
 ---
 
 ## 📌 Tentang Aplikasi
