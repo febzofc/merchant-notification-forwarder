@@ -602,7 +602,7 @@ fun MainScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            text = "Filter Transaksi QRIS & Aplikasi",
+                            text = "Filter Sumber Pembayaran",
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
                             color = MaterialTheme.colorScheme.primary
@@ -611,26 +611,26 @@ fun MainScreen(
                         Column(
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            // Option 1: QRIS Merchant DANA & GoPay
+                            // Option 1: Merchant GoPay, DANA & OVO
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(48.dp),
+                                    .height(56.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 RadioButton(
-                                    selected = filterMode == "qris" || filterMode == "gopay",
-                                    onClick = { NotificationStateHolder.saveFilterMode("qris") }
+                                    selected = filterMode == "merchant" || filterMode == "qris" || filterMode == "gopay",
+                                    onClick = { NotificationStateHolder.saveFilterMode("merchant") }
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Column {
                                     Text(
-                                        text = "QRIS Merchant: DANA Bisnis & GoPay / GoBiz",
+                                        text = "Merchant: GoPay Merchant, DANA & OVO",
                                         style = MaterialTheme.typography.bodyLarge,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
-                                        text = "Dekomendasi utama (id.dana & gopay/gobiz)",
+                                        text = "Hanya pembayaran/QRIS. Transfer pribadi diabaikan (disarankan)",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.primary
                                     )
@@ -655,7 +655,7 @@ fun MainScreen(
                                         style = MaterialTheme.typography.bodyLarge
                                     )
                                     Text(
-                                        text = "DANA, GoPay, OVO, ShopeePay, Bank (BCA/Mandiri)",
+                                        text = "DANA, GoPay, OVO, ShopeePay, LinkAja, Bank",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )

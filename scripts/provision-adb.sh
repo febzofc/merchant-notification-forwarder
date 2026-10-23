@@ -7,7 +7,7 @@
 # ADB bukan "internet-sideloading source", sehingga instalasi tidak diblokir.
 #
 # Pemakaian:
-#   ./scripts/provision-adb.sh Bayarin-v1.1.apk
+#   ./scripts/provision-adb.sh Bayarin-v1.3.apk
 #
 # Prasyarat di perangkat: Opsi Pengembang -> USB debugging aktif.
 

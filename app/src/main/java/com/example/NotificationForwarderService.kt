@@ -163,12 +163,6 @@ class NotificationForwarderService : NotificationListenerService() {
                             )
                         )
                         Log.d("Bayarin", "Successfully forwarded notification from $packageName to webhook")
-                        NotificationHelper.sendForwardNotification(
-                            this@NotificationForwarderService,
-                            provider,
-                            title,
-                            text
-                        )
                     } else {
                         NotificationStateHolder.addLog(
                             logItem.copy(
@@ -220,6 +214,48 @@ class NotificationForwarderService : NotificationListenerService() {
             }
         }
 
+        /**
+         * Paket aplikasi pembayaran merchant yang didukung.
+         * Pencocokan dilakukan pada package name, bukan pada isi teks, karena
+         * kata "dana" di dalam teks berarti "funds" dan membuat notifikasi
+         * transfer bank biasa ikut terdeteksi.
+         */
+        private val MERCHANT_PACKAGES = listOf(
+            "id.dana",              // DANA / DANA Bisnis
+            "com.gojek.gobiz",      // GoBiz (GoPay Merchant)
+            "com.gojek.gopay",      // GoPay Merchant
+            "com.gojek.merchant",   // GoPay Merchant (varian lain)
+            "id.co.ovo"             // OVO / OVO Merchant
+        )
+
+        /** Paket tambahan untuk mode "Semua E-Wallet QRIS". */
+        private val ALL_QRIS_PACKAGES = MERCHANT_PACKAGES + listOf(
+            "com.gojek.app",              // Gojek (GoPay)
+            "com.shopeepay.id",
+            "com.shopee.id",
+            "com.telkomsel.telkomselcm",  // LinkAja
+            "id.co.linkaja",
+            "com.bca",
+            "id.bmri.livin",
+            "id.co.bri.brimo"
+        )
+
+        /** Kata yang menandakan transfer pribadi, bukan pembayaran merchant. */
+        private val TRANSFER_KEYWORDS = listOf(
+            "transfer", "dikirim", "kirim uang", "menerima uang", "uang masuk",
+            "top up", "isi saldo", "tarik tunai", "tarik saldo",
+            "refund", "pengembalian", "dana kaget", "minta uang"
+        )
+
+        /** Kata yang menandakan notifikasi pembayaran merchant. */
+        private val PAYMENT_KEYWORDS = listOf(
+            "qris", "pembayaran", "payment", "transaksi", "transaction",
+            "penjualan", "merchant", "pelanggan", "dibayar", "berhasil dibayar"
+        )
+
+        private fun matchesPackage(pkg: String, candidates: List<String>): Boolean =
+            candidates.any { pkg == it || pkg.startsWith("$it.") }
+
         fun evaluateFilter(
             packageName: String,
             title: String,
@@ -233,35 +269,14 @@ class NotificationForwarderService : NotificationListenerService() {
             provider: String = ""
         ): FilterDecision {
             val combined = "$packageName $title $text $subText".lowercase()
+            val pkg = packageName.lowercase()
 
             val isTargetApp = when (mode) {
                 "all" -> true
-                "qris", "gopay", "merchant" -> {
-                    packageName.contains("dana", ignoreCase = true) ||
-                    packageName.contains("gojek.gobiz", ignoreCase = true) ||
-                    packageName.contains("gopay", ignoreCase = true) ||
-                    packageName.contains("gojek.app", ignoreCase = true) ||
-                    combined.contains("dana") ||
-                    combined.contains("gopay") ||
-                    combined.contains("gobiz") ||
-                    combined.contains("qris")
-                }
-                "all_qris" -> {
-                    packageName.contains("dana", ignoreCase = true) ||
-                    packageName.contains("gopay", ignoreCase = true) ||
-                    packageName.contains("gobiz", ignoreCase = true) ||
-                    packageName.contains("gojek", ignoreCase = true) ||
-                    packageName.contains("ovo", ignoreCase = true) ||
-                    packageName.contains("shopee", ignoreCase = true) ||
-                    packageName.contains("linkaja", ignoreCase = true) ||
-                    packageName.contains("bca", ignoreCase = true) ||
-                    packageName.contains("bmri", ignoreCase = true) ||
-                    packageName.contains("livin", ignoreCase = true) ||
-                    combined.contains("qris") ||
-                    combined.contains("dana") ||
-                    combined.contains("gopay")
-                }
-                "custom" -> packageName.equals(customPackage.trim(), ignoreCase = true)
+                // "qris" dan "gopay" adalah nilai lama; arahkan ke mode merchant.
+                "qris", "gopay", "merchant" -> matchesPackage(pkg, MERCHANT_PACKAGES)
+                "all_qris" -> matchesPackage(pkg, ALL_QRIS_PACKAGES)
+                "custom" -> pkg == customPackage.trim().lowercase()
                 else -> false
             }
 
@@ -293,18 +308,24 @@ class NotificationForwarderService : NotificationListenerService() {
                 }
             }
 
+            if (mode != "all") {
+                val hasQris = combined.contains("qris")
+                val isTransfer = TRANSFER_KEYWORDS.any { combined.contains(it) }
+
+                // Transfer pribadi / uang masuk biasa tidak boleh dianggap pembayaran.
+                if (!hasQris && isTransfer) {
+                    return FilterDecision(false, "Transfer pribadi, bukan pembayaran QRIS merchant")
+                }
+
+                val hasPaymentEvidence = hasQris || PAYMENT_KEYWORDS.any { combined.contains(it) }
+                if (!hasPaymentEvidence) {
+                    return FilterDecision(false, "Bukan notifikasi pembayaran merchant")
+                }
+            }
+
             val resolvedAmount = amount ?: extractAmount("$title $text $subText")
             if (requireAmount && (resolvedAmount == null || resolvedAmount <= 0L)) {
                 return FilterDecision(false, "Tidak terdeteksi nominal pembayaran yang valid")
-            }
-
-            val paymentKeywords = listOf(
-                "berhasil", "menerima", "diterima", "terima", "masuk", "paid",
-                "received", "pembayaran", "transaksi", "sukses", "qris"
-            )
-            val hasPaymentKeyword = paymentKeywords.any { combined.contains(it) }
-            if (mode != "all" && !hasPaymentKeyword) {
-                return FilterDecision(false, "Bukan notifikasi transaksi masuk yang valid")
             }
 
             return FilterDecision(true, "Notifikasi valid")

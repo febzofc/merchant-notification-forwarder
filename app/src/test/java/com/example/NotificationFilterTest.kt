@@ -33,20 +33,123 @@ class NotificationFilterTest {
     }
 
     @Test
-    fun testDanaUangMasukAllowed() {
+    fun testDanaPersonalTransferBlocked() {
         val decision = NotificationForwarderService.evaluateFilter(
             packageName = "id.dana",
             title = "DANA",
             text = "Berhasil menerima uang sebesar Rp 100.000 dari SITI",
             subText = "",
-            mode = "qris",
+            mode = "merchant",
             customPackage = "",
             blockPromos = true,
             requireAmount = true,
             amount = 100000L,
             provider = "DANA"
         )
-        assertTrue("Real incoming payment must be allowed", decision.allowed)
+        assertFalse("Transfer pribadi tidak boleh diteruskan", decision.allowed)
+    }
+
+    @Test
+    fun testBankTransferBlockedInMerchantMode() {
+        val decision = NotificationForwarderService.evaluateFilter(
+            packageName = "com.bca",
+            title = "m-BCA",
+            text = "Transfer masuk Rp 1.500.000 dari BUDI",
+            subText = "",
+            mode = "merchant",
+            customPackage = "",
+            blockPromos = true,
+            requireAmount = true,
+            amount = 1500000L,
+            provider = "OTHER"
+        )
+        assertFalse("Transfer bank biasa tidak boleh diteruskan", decision.allowed)
+    }
+
+    @Test
+    fun testBankTransferBlockedInAllQrisMode() {
+        val decision = NotificationForwarderService.evaluateFilter(
+            packageName = "com.bca",
+            title = "m-BCA",
+            text = "Transfer masuk Rp 1.500.000 dari BUDI",
+            subText = "",
+            mode = "all_qris",
+            customPackage = "",
+            blockPromos = true,
+            requireAmount = true,
+            amount = 1500000L,
+            provider = "OTHER"
+        )
+        assertFalse("Transfer bank tetap harus ditolak di mode all_qris", decision.allowed)
+    }
+
+    @Test
+    fun testOtherAppMentioningQrisTextBlocked() {
+        // Kata "qris"/"dana" di teks tidak boleh lagi membuat aplikasi lain lolos.
+        val decision = NotificationForwarderService.evaluateFilter(
+            packageName = "com.whatsapp",
+            title = "Grup Merchant",
+            text = "Pembayaran QRIS Rp 50.000 sudah masuk ya",
+            subText = "",
+            mode = "merchant",
+            customPackage = "",
+            blockPromos = true,
+            requireAmount = true,
+            amount = 50000L,
+            provider = "QRIS"
+        )
+        assertFalse("Hanya paket merchant resmi yang boleh diteruskan", decision.allowed)
+    }
+
+    @Test
+    fun testOvoQrisPaymentAllowed() {
+        val decision = NotificationForwarderService.evaluateFilter(
+            packageName = "id.co.ovo",
+            title = "OVO Merchant",
+            text = "Pembayaran QRIS Rp 20.000 berhasil diterima",
+            subText = "",
+            mode = "merchant",
+            customPackage = "",
+            blockPromos = true,
+            requireAmount = true,
+            amount = 20000L,
+            provider = "OVO"
+        )
+        assertTrue("Pembayaran QRIS OVO harus diteruskan", decision.allowed)
+    }
+
+    @Test
+    fun testGobizPaymentWithoutQrisWordAllowed() {
+        val decision = NotificationForwarderService.evaluateFilter(
+            packageName = "com.gojek.gobiz",
+            title = "GoBiz",
+            text = "Pembayaran sebesar Rp 15.000 berhasil diterima dari pelanggan",
+            subText = "",
+            mode = "merchant",
+            customPackage = "",
+            blockPromos = true,
+            requireAmount = true,
+            amount = 15000L,
+            provider = "GOPAY"
+        )
+        assertTrue("Pembayaran merchant tanpa kata QRIS tetap valid", decision.allowed)
+    }
+
+    @Test
+    fun testGojekConsumerTransferBlocked() {
+        val decision = NotificationForwarderService.evaluateFilter(
+            packageName = "com.gojek.app",
+            title = "GoPay",
+            text = "Kamu menerima transfer Rp 75.000 dari BUDI",
+            subText = "",
+            mode = "merchant",
+            customPackage = "",
+            blockPromos = true,
+            requireAmount = true,
+            amount = 75000L,
+            provider = "GOPAY"
+        )
+        assertFalse("Aplikasi Gojek konsumen bukan merchant", decision.allowed)
     }
 
     @Test

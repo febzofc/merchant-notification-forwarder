@@ -47,7 +47,7 @@ Setiap rilis GitHub juga menyertakan berkas `.aab` untuk diunggah ke Play Consol
 ### Provisioning cepat lewat ADB (gratis)
 
 ```bash
-./scripts/provision-adb.sh Bayarin-v1.2.apk
+./scripts/provision-adb.sh Bayarin-v1.3.apk
 ```
 
 Skrip ini memasang APK, memberi akses Notification Listener, mengizinkan notifikasi, dan mengecualikan aplikasi dari optimasi baterai — tanpa perlu menyentuh Play Protect. Jalankan untuk setiap perangkat merchant.
@@ -92,10 +92,11 @@ Jika masih diblokir, sumbernya biasanya aplikasi keamanan bawaan vendor, bukan P
   - Memastikan hanya notifikasi transaksi pembayaran sah yang diteruskan ke server Anda.
 - 💰 **Auto Extract Amount**: Mengekstrak nominal pembayaran (`Rp` / `IDR`) secara otomatis ke format angka numerik (`Long`).
 - 🎯 **Mode Penyaringan Fleksibel**:
-  - **GoPay & DANA** (Rekomendasi untuk UMKM)
-  - **Semua QRIS & E-Wallet** (GoPay, DANA, OVO, ShopeePay, LinkAja, BCA, Livin by Mandiri)
+  - **Merchant: GoPay Merchant, DANA & OVO** (Rekomendasi — hanya notifikasi pembayaran/QRIS dari `id.dana`, `com.gojek.gobiz`, `com.gojek.gopay`, `com.gojek.merchant`, `id.co.ovo`. Transfer pribadi & uang masuk biasa otomatis diabaikan)
+  - **Semua QRIS & E-Wallet** (GoPay, DANA, OVO, ShopeePay, LinkAja, BCA, Livin by Mandiri — tetap hanya notifikasi pembayaran, bukan transfer)
   - **Semua Aplikasi** (Meneruskan semua notifikasi sistem)
   - **Custom Package Name** (Filter aplikasi berdasarkan *package name* spesifik, contoh: `com.whatsapp`)
+- 🔕 **Tanpa Notifikasi Konfirmasi**: setiap pembayaran yang berhasil diteruskan tidak lagi memunculkan notifikasi dari Bayarin; statusnya hanya tercatat di Log Aktivitas.
 - 🧪 **Simulator & Pengujian Langsung**:
   - Uji koneksi Webhook langsung dari dalam aplikasi.
   - Simulasi validasi filter pembayaran QRIS vs pesan promo tanpa perlu menunggu transaksi asli.

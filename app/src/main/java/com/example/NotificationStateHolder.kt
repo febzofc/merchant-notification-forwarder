@@ -58,7 +58,7 @@ object NotificationStateHolder {
 
     val recentLogs = MutableStateFlow<List<ForwardLog>>(emptyList())
     val webhookUrl = MutableStateFlow("")
-    val filterMode = MutableStateFlow("qris")
+    val filterMode = MutableStateFlow("merchant")
     val customPackage = MutableStateFlow("")
     val blockPromos = MutableStateFlow(true)
     val requireAmount = MutableStateFlow(true)
@@ -73,14 +73,22 @@ object NotificationStateHolder {
         val savedUrl = prefs.getString(KEY_WEBHOOK_URL, null)
             ?: oldPrefs.getString(KEY_WEBHOOK_URL, "") ?: ""
         val savedMode = prefs.getString(KEY_FILTER_MODE, null)
-            ?: oldPrefs.getString(KEY_FILTER_MODE, "qris") ?: "qris"
+            ?: oldPrefs.getString(KEY_FILTER_MODE, "merchant") ?: "merchant"
         val savedCustom = prefs.getString(KEY_CUSTOM_PACKAGE, null)
             ?: oldPrefs.getString(KEY_CUSTOM_PACKAGE, "") ?: ""
         val savedBlockPromos = prefs.getBoolean(KEY_BLOCK_PROMOS, true)
         val savedRequireAmount = prefs.getBoolean(KEY_REQUIRE_AMOUNT, true)
 
         webhookUrl.value = savedUrl
-        filterMode.value = if (savedMode == "gopay") "qris" else savedMode
+        // Mode lama "qris"/"gopay" diarahkan ke mode merchant yang lebih ketat,
+        // agar notifikasi transfer bank biasa tidak lagi ikut diteruskan.
+        filterMode.value = when (savedMode) {
+            "qris", "gopay" -> "merchant"
+            else -> savedMode
+        }
+        if (savedMode != filterMode.value) {
+            prefs.edit().putString(KEY_FILTER_MODE, filterMode.value).apply()
+        }
         customPackage.value = savedCustom
         blockPromos.value = savedBlockPromos
         requireAmount.value = savedRequireAmount
